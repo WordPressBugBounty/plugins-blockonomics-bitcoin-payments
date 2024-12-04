@@ -5,15 +5,15 @@
  */
 class Blockonomics
 {
-    const BASE_URL = 'https://www.blockonomics.co/api';
-    const STORES_URL = self::BASE_URL . '/v2/stores?wallets=true';
+    const BASE_URL = 'https://www.blockonomics.co';
+    const STORES_URL = self::BASE_URL . '/api/v2/stores?wallets=true';
 
-    const NEW_ADDRESS_URL = self::BASE_URL . '/new_address';
-    const PRICE_URL = 'https://www.blockonomics.co/api/price';
+    const NEW_ADDRESS_URL = self::BASE_URL . '/api/new_address';
+    const PRICE_URL = self::BASE_URL . '/api/price';
 
     const BCH_BASE_URL = 'https://bch.blockonomics.co';
-    const BCH_PRICE_URL = 'https://bch.blockonomics.co/api/price';
-    const BCH_NEW_ADDRESS_URL = 'https://bch.blockonomics.co/api/new_address';
+    const BCH_PRICE_URL = self::BCH_BASE_URL . '/api/price';
+    const BCH_NEW_ADDRESS_URL = self::BCH_BASE_URL . '/api/new_address';
 
 
     function get_order_paid_fiat($order_id) {
@@ -66,8 +66,9 @@ class Blockonomics
     }
 
 
-    public function new_address($secret, $crypto, $reset=false)
+    public function new_address($crypto, $reset=false)
     {
+        $secret = get_option("blockonomics_callback_secret");
         // Get the full callback URL
         $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
         $callback_url = add_query_arg('secret', $secret, $api_url);
@@ -104,8 +105,7 @@ class Blockonomics
         return $responseObj;
     }
 
-    public function get_price($currency, $crypto)
-    {
+    public function get_price($currency, $crypto) {
         if($crypto === 'btc'){
             $url = Blockonomics::PRICE_URL. "?currency=$currency";
         }else{
@@ -114,15 +114,22 @@ class Blockonomics
         $response = $this->get($url);
         if (!isset($responseObj)) $responseObj = new stdClass();
         $responseObj->{'response_code'} = wp_remote_retrieve_response_code($response);
-        if (wp_remote_retrieve_body($response))
-        {
-          $body = json_decode(wp_remote_retrieve_body($response));
-          $responseObj->{'response_message'} = isset($body->message) ? $body->message : '';
-          $responseObj->{'price'} = isset($body->price) ? $body->price : '';
+        if (wp_remote_retrieve_body($response)) {
+            $body = json_decode(wp_remote_retrieve_body($response));
+            // Check if api response is {"price":null} which indicates unsupported currency
+            if ($body && property_exists($body, 'price') && $body->price === null) {
+                $responseObj->{'response_message'} = sprintf(
+                    __('Currency %s is not supported by Blockonomics', 'blockonomics-bitcoin-payments'),
+                    $currency
+                );
+                $responseObj->{'price'} = '';
+            } else {
+                $responseObj->{'response_message'} = isset($body->message) ? $body->message : '';
+                $responseObj->{'price'} = isset($body->price) ? $body->price : '';
+            }
         }
         return $responseObj;
     }
-
 
     public function get_callbacks($crypto)
     {
@@ -171,7 +178,7 @@ class Blockonomics
 
     private function update_store($store_id, $data) {
         // Ensure we're using the specific store endpoint
-        $url = self::BASE_URL . '/v2/stores/' . $store_id;
+        $url = self::BASE_URL . '/api/v2/stores/' . $store_id;
         return $this->post($url, $this->api_key, wp_json_encode($data), 45);
     }
 
@@ -567,33 +574,40 @@ class Blockonomics
     }
 
     public function create_new_order($order_id, $crypto){
-        $responseObj = $this->new_address(get_option("blockonomics_callback_secret"), $crypto);
+        $responseObj = $this->new_address($crypto);
         if($responseObj->response_code != 200) {
             return array("error"=>$responseObj->response_message);
         }
         $address = $responseObj->address;
         $order = array(
-                'order_id'           => $order_id,
-                'payment_status'     => 0,
-                'crypto'             => $crypto,
-                'address'            => $address
+            'order_id'           => $order_id,
+            'payment_status'     => 0,
+            'crypto'             => $crypto,
+            'address'            => $address
         );
-        $order = $this->calculate_order_params($order);
-        return $order;
+        return $this->calculate_order_params($order);
     }
 
     public function get_error_context($error_type){
         $context = array();
 
-        if ($error_type == 'generic') {
-            // Show Generic Error to Client.
+        if ($error_type == 'currency') {
+            // For unsupported currency errors
+            // $context['error_title'] = __('Checkout Page Error', 'blockonomics-bitcoin-payments');
+            $context['error_title'] = '';
+
+            $context['error_msg'] = sprintf(
+                __('Currency %s selected on this store is not supported by Blockonomics', 'blockonomics-bitcoin-payments'),
+                get_woocommerce_currency()
+            );
+        } else if ($error_type == 'generic') {
+            // Show Generic Error to Client
             $context['error_title'] = __('Could not generate new address (This may be a temporary error. Please try again)', 'blockonomics-bitcoin-payments');
-            $context['error_msg'] = __('If this continues, please ask website administrator to do following:<br/><ul><li>Login to admin panel, navigate to WooCommerce > Settings > Payment. Select Manage on "Blockonomics Bitcoin" and click Test Setup to diagnose the exact issue.</li><li>Check blockonomics registered email address for error messages</li>', 'blockonomics-bitcoin-payments');
-        } else if($error_type == 'underpaid') {
+            $context['error_msg'] = __('If this continues, please ask website administrator to do following:<br/><ul><li>Login to WordPress admin panel, navigate to WooCommerce > Settings > Payment. Select Manage on "Blockonomics Bitcoin" and click Test Setup to diagnose the exact issue.</li><li>Check blockonomics registered email address for error messages</li></ul>', 'blockonomics-bitcoin-payments');
+        } else if ($error_type == 'underpaid') {
             $context['error_title'] = '';
             $context['error_msg'] = __('Paid order BTC amount is less than expected. Contact merchant', 'blockonomics-bitcoin-payments');
         }
-
         return $context;
     }
 
@@ -617,17 +631,21 @@ class Blockonomics
     }
 
     public function get_checkout_context($order, $crypto){
-        
         $context = array();
         $error_context = NULL;
 
-        $context['order_id'] = $order['order_id'];
-
+        $context['order_id'] = isset($order['order_id']) ? $order['order_id'] : '';
         $cryptos = $this->getActiveCurrencies();
         $context['crypto'] = $cryptos[$crypto];
 
         if (array_key_exists('error', $order)) {
-            $error_context = $this->get_error_context('generic');
+            // Check if this is a currency error
+            if (strpos($order['error'], 'Currency') === 0) {
+                $error_context = $this->get_error_context('currency');
+            } else {
+                // All other errors use generic error handling
+                $error_context = $this->get_error_context('generic');
+            }
         } else {
             $context['order'] = $order;
 

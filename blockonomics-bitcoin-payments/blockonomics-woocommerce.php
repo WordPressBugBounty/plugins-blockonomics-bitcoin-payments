@@ -3,7 +3,7 @@
  * Plugin Name: WordPress Bitcoin Payments - Blockonomics
  * Plugin URI: https://github.com/blockonomics/woocommerce-plugin
  * Description: Accept Bitcoin Payments on your WooCommerce-powered website with Blockonomics
- * Version: 3.7.6
+ * Version: 3.7.7
  * Author: Blockonomics
  * Author URI: https://www.blockonomics.co
  * License: MIT
@@ -63,12 +63,12 @@ function blockonomics_woocommerce_init()
         return;
     }
 
-   
+
     require_once plugin_dir_path(__FILE__) . 'php' . DIRECTORY_SEPARATOR . 'WC_Gateway_Blockonomics.php';
     include_once plugin_dir_path(__FILE__) . 'php' . DIRECTORY_SEPARATOR . 'Blockonomics.php';
     require_once plugin_dir_path(__FILE__) . 'php' . DIRECTORY_SEPARATOR . 'admin-page.php';
     require_once plugin_dir_path(__FILE__) . 'php' . DIRECTORY_SEPARATOR . 'class-blockonomics-setup.php';
-    
+
     add_action('admin_menu', 'add_page');
     add_action('init', 'load_plugin_translations');
     add_action('woocommerce_order_details_after_order_table', 'nolo_custom_field_display_cust_order_meta', 10, 1);
@@ -91,8 +91,9 @@ function blockonomics_woocommerce_init()
     }
 
     function blockonomics_add_admin_menu() {
+        // Use options.php as parent slug to create a hidden admin page
         add_submenu_page(
-            null,
+            'options.php', // parent slug
             'Blockonomics Setup',
             'Blockonomics',
             'manage_options',
@@ -100,7 +101,7 @@ function blockonomics_woocommerce_init()
             'blockonomics_setup_page'
         );
     }
-    
+
     add_action( 'admin_enqueue_scripts', 'blockonomics_enqueue_custom_admin_style' );
     add_action( 'wp_ajax_test_setup', 'blockonomics_test_setup' );
 
@@ -120,7 +121,7 @@ function blockonomics_woocommerce_init()
 		    wp_enqueue_style( 'blockonomics-admin-style' );
 
             wp_register_script( 'blockonomics-admin-scripts', plugins_url('js/admin.js', __FILE__), array(), get_plugin_data( __FILE__ )['Version'], array( 'strategy' => 'defer' ) );
-    
+
             wp_localize_script('blockonomics-admin-scripts', 'blockonomics_params', array(
                 'ajaxurl' => admin_url( 'admin-ajax.php' ),
                 'apikey'  => get_option('blockonomics_api_key')
@@ -154,7 +155,7 @@ function blockonomics_woocommerce_init()
         if ($currentFilter == 'wp_head'){
             return;
         }
-        
+
         $show_order = isset($_GET["show_order"]) ? sanitize_text_field(wp_unslash($_GET['show_order'])) : "";
         $crypto = isset($_GET["crypto"]) ? sanitize_key($_GET['crypto']) : "";
         $select_crypto = isset($_GET["select_crypto"]) ? sanitize_text_field(wp_unslash($_GET['select_crypto'])) : "";
@@ -198,7 +199,7 @@ function blockonomics_woocommerce_init()
         return esc_url($blockonomics->get_order_checkout_url($order_id));
 
     }
-     
+
     /**
      * Add Styles to Blockonomics Admin Page
      **/
@@ -210,7 +211,7 @@ function blockonomics_woocommerce_init()
     /**
      * Adding new filter to WooCommerce orders
      **/
-    
+
      function filter_orders() {
         $screen = get_current_screen();
         if ( in_array( $screen->id, array( 'edit-shop_order', 'woocommerce_page_wc-orders' ) )) {
@@ -241,7 +242,7 @@ function blockonomics_woocommerce_init()
         }
         return $vars;
     }
-    
+
     /**
      * Add this Gateway to WooCommerce
      **/
@@ -316,21 +317,20 @@ function blockonomics_woocommerce_init()
     function bnomics_display_payment_details($order, $transactions, $email=false)
     {
         $blockonomics = new Blockonomics;
-        
+
         $output  = '<h2 class="woocommerce-column__title">Payment details</h2>';
         $output .= '<table class="woocommerce-table woocommerce-table--order-details shop_table order_details">'; 
         $output .= '<tbody>';
         $total_paid_fiat = $blockonomics->calculate_total_paid_fiat($transactions);
         foreach ($transactions as $transaction) {
-           
-            $base_url = ($transaction['crypto'] === 'btc') ? Blockonomics::BASE_URL : Blockonomics::BCH_BASE_URL;
-            
+
+            $base_url = ($transaction['crypto'] === 'btc') ? Blockonomics::BASE_URL . '/#/search?q=' : Blockonomics::BCH_BASE_URL . '/api/tx?txid=';
+
             $output .=  '<tr><td scope="row">';
-            $output .=  '<a style="word-wrap: break-word;word-break: break-all;" href="' . $base_url . '/api/tx?txid=' . $transaction['txid'] . '&addr=' . $transaction['address'] . '">' . $transaction['txid'] . '</a></td>';
-            
+            $output .=  '<a style="word-wrap: break-word;word-break: break-all;" href="' . $base_url . $transaction['txid'] . '&addr=' . $transaction['address'] . '">' . $transaction['txid'] . '</a></td>';
             $formatted_paid_fiat = ($transaction['payment_status'] == '2') ? wc_price($transaction['paid_fiat']) : 'Processing';
             $output .= '<td>' . $formatted_paid_fiat . '</td></tr>';
-            
+
         }
         $output .= '</tbody>';
         $expected_fiat = (float)$order->get_total();
@@ -428,9 +428,15 @@ function blockonomics_create_table() {
 }
 
 function blockonomics_activation_hook() {
-    if(!is_plugin_active('woocommerce/woocommerce.php'))
-    {
-        trigger_error(__( 'Wordpress Bitcoin Payments - Blockonomics requires WooCommerce plugin to be installed and active.', 'blockonomics-bitcoin-payments' ).'<br>', E_USER_ERROR);
+    if(!is_plugin_active('woocommerce/woocommerce.php')) {
+        deactivate_plugins(plugin_basename(__FILE__));
+        $error_message = sprintf(
+            __('This plugin requires WooCommerce to be installed and activated. Please install and activate WooCommerce first, then activate Blockonomics Bitcoin Payments.', 'blockonomics-bitcoin-payments')
+        );
+        wp_die($error_message, 'Plugin Activation Error', array(
+            'response'  => 200,
+            'back_link' => true,
+        ));
     }
 }
 // Page creation function  for the Blockonomics payement following woo-commerce page creation shortcode logic 
@@ -532,7 +538,9 @@ function blockonomics_uninstall_hook() {
     global $wpdb;
     // drop blockonomics_orders & blockonomics_payments on uninstallation
     // blockonomics_orders was the payments table before db version 1.2
-    $wpdb->query($wpdb->prepare("DROP TABLE IF EXISTS ".$wpdb->prefix."blockonomics_orders , ".$wpdb->prefix."blockonomics_payments"));
+    // Fix: Add proper placeholder in the query
+    $wpdb->query("DROP TABLE IF EXISTS ".$wpdb->prefix."blockonomics_orders");
+    $wpdb->query("DROP TABLE IF EXISTS ".$wpdb->prefix."blockonomics_payments");
     delete_option("blockonomics_db_version");
 
     // Remove the custom page and shortcode added for payment
