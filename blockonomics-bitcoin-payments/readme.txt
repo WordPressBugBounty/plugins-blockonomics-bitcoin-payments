@@ -1,9 +1,9 @@
 === Wordpress Bitcoin Payments - Blockonomics === 
-Contributors: juhasiivikko, darrenwestwood, blockonomics, anktd, btcdeveloper
+Contributors: juhasiivikko, darrenwestwood, blockonomics, ankit61d, btcdeveloper
 Tags: bitcoin, accept bitcoin, bitcoin woocommerce, bitcoin wordpress plugin, bitcoin payments
 Requires at least: 3.0.1 
 Tested up to: 6.7
-Stable tag: 3.7.7
+Stable tag: 3.7.8
 License: MIT 
 License URI: http://opensource.org/licenses/MIT 
 
@@ -12,6 +12,9 @@ Accept bitcoin payments and altcoins on your WooCommerce website. Bitcoin paymen
 == Description == 
 
 The fastest and easiest way to start accepting Bitcoin payments on your WooCommerce online store. Since 2015, [Blockonomics](https://www.blockonomics.co/merchants?utm_source=wordpress) has helped thousands of ecommerce sites increase sales by including Bitcoin and Bitcoin Cash as payment options for their customers.
+
+https://www.youtube.com/watch?v=FNEmYaGRaDo
+
 
 = A truly decentralized bitcoin payment processor for WordPress = 
 
@@ -22,7 +25,7 @@ Blockonomics is the only Bitcoin payment gateway that enables full decentralizat
 - Payments are received **directly into your wallet** 
 - **No approvals** of API key/documentation required 
 - **Safe and secure** transactions 
-- Installation only takes **two minutes** - [Video Tutorial](https://www.youtube.com/watch?v=nFKzzMgdBpQ)  
+- Installation only takes **two minutes** - [Video Tutorial](https://www.youtube.com/watch?v=bozfMIznpao)  
 - Eliminate chargebacks and fraud 
 - **World-class** customer support team 
 
@@ -63,17 +66,18 @@ Feel free to read our [bug bounty policy](https://help.blockonomics.co/support/s
 = How to customize the checkout page? = 
 You are free to customize the checkout page according to your needs. Feel free to consult [this article](http://help.blockonomics.co/support/solutions/articles/33000243991-how-to-customize-the-checkout-page-)
 
-== Screenshots == 
-
-1. Animated Demo
+== Screenshots ==
 
 2. Payment screen 
 
-3. Settings Panel   
+3. Settings Panel
 
 4. Blockonomics configuration
- 
 == Changelog ==
+
+= 3.7.8  =
+* Improved: Markup setting now supports decimal values (0–4%) for finer pricing control
+* Fixed: "Payment details" string now translatable
 
 = 3.7.7  =
 * graceful error handling in few cases 
