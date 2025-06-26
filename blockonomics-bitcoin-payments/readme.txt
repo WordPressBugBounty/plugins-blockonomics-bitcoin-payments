@@ -2,8 +2,8 @@
 Contributors: juhasiivikko, darrenwestwood, blockonomics, ankit61d, btcdeveloper
 Tags: bitcoin, accept bitcoin, bitcoin woocommerce, bitcoin wordpress plugin, bitcoin payments
 Requires at least: 3.0.1 
-Tested up to: 6.7
-Stable tag: 3.7.8
+Tested up to: 6.8.1
+Stable tag: 3.7.9
 License: MIT 
 License URI: http://opensource.org/licenses/MIT 
 
@@ -74,6 +74,10 @@ You are free to customize the checkout page according to your needs. Feel free t
 
 4. Blockonomics configuration
 == Changelog ==
+
+= 3.7.9  =
+* Add discount settings for payment method
+* Added back expected_btc custom field
 
 = 3.7.8  =
 * Improved: Markup setting now supports decimal values (0–4%) for finer pricing control
