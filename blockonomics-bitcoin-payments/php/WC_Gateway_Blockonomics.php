@@ -17,22 +17,17 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
         $this->id   = 'blockonomics';
         $this->method_title = __( 'Blockonomics Bitcoin', 'blockonomics-bitcoin-payments' );
-        $this->method_description = __( 'Accept Bitcoin & Bitcoin Cash payments. Payments go directly to your wallet.', 'blockonomics-bitcoin-payments' );
+        $this->method_description = __( 'Accept crypto payments. Payments go directly to your wallet.', 'blockonomics-bitcoin-payments' );
 
         include_once 'Blockonomics.php';
         $blockonomics = new Blockonomics;
-        $active_cryptos = $blockonomics->getActiveCurrencies();
+        $this->icon = plugins_url('img', dirname(__FILE__)) . '/logo.png';
 
-        if (isset($active_cryptos['btc']) && isset($active_cryptos['bch'])) {
-            $this->icon = plugins_url('img', dirname(__FILE__)) . '/bitcoin-bch-icon.png';
-        } elseif (isset($active_cryptos['btc'])) {
-            $this->icon = plugins_url('img', dirname(__FILE__)) . '/bitcoin-icon.png';
-        } elseif (isset($active_cryptos['bch'])) {
-            $this->icon = plugins_url('img', dirname(__FILE__)) . '/bch-icon.png';
-        }
+        // control icon size in WooCommerce checkout payment method list, file is 100x100 we want 36x36
+        add_filter('woocommerce_gateway_icon', array($this, 'resize_payment_icon'), 10, 2);
 
         $this->has_fields        = false;
-        $this->order_button_text = __('Pay with bitcoin', 'blockonomics-bitcoin-payments');
+        $this->order_button_text = __('Pay with crypto', 'blockonomics-bitcoin-payments');
     
         $this->init_form_fields();
         $this->init_settings();
@@ -66,6 +61,19 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         );
     }
 
+    /* Resize the payment gateway icon in WooCommerce checkout.
+     *
+     * @param string $icon_html The icon HTML.
+     * @param string $gateway_id The gateway ID.
+     * @return string Modified icon HTML with max-height style.
+     */
+    public function resize_payment_icon($icon_html, $gateway_id) {
+        if ($gateway_id === $this->id) {
+            // 36x36 looks good enough
+            $icon_html = str_replace('<img', '<img style="max-height:36px;width:auto;"', $icon_html);
+        }
+        return $icon_html;
+    }
 
     public function init_form_fields() {
         require_once 'form_fields.php';
@@ -76,6 +84,9 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
     {
         $callback_secret = get_option('blockonomics_callback_secret');
         $callback_url = WC()->api_request_url('WC_Gateway_Blockonomics');
+        // strip WPML/Polylang language prefix (i.e. /de/, /en-us/) to ensure consistent callback URL
+        // only do this if prefix appears immediately before /wc-api/ to avoid false positives
+        $callback_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $callback_url);
         $callback_url = add_query_arg('secret', $callback_secret, $callback_url);
         return $callback_url;
     }
@@ -254,16 +265,12 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
                 <div class="bnomics-options-margin-top">
                         <div>
                             <?php
-                                $blockonomics = new Blockonomics;
-                                $cryptos = $blockonomics->getSupportedCurrencies();
-                                foreach ($cryptos as $currencyCode => $crypto) {
-                                    if ($currencyCode !== 'bch') {
-                                        echo '<p class="notice notice-success ' . $currencyCode . '-success-notice" style="display:none;width:400px;">'.strtoupper($currencyCode).'  &#9989;</p>';
-                                        echo '<p class="notice notice-error ' . $currencyCode . '-error-notice" style="width:400px;display:none;">';
-                                        echo '<span class="errorText"></span><br />';
-                                        echo '</p>';
-                                    }
-                                }
+                                echo '<p class="notice notice-success" style="display:none;">';
+                                echo '<span class="successText"></span><br />';
+                                echo '</p>';
+                                echo '<p class="notice notice-error" style="display:none;">';
+                                echo '<span class="errorText"></span><br />';
+                                echo '</p>';
                             ?>
                         </div>
                         <div class="flex-display">
@@ -311,13 +318,9 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
             <td class="forminp">
                 <fieldset>
-                    <?php if ( ! empty( $data['subtitle'] ) ) : ?>
-                        <p style="margin-bottom: 8px;">
-                            <strong>
-                                <?php echo wp_kses_post( $data['subtitle'] ); ?>
-                            </strong>
-                        </p>
-                    <?php endif; ?>
+                    <p id="store-name-display" style="margin-bottom: 8px;<?php echo empty($data['subtitle']) ? 'display:none;' : ''; ?>">
+                        <strong><?php echo wp_kses_post( $data['subtitle'] ); ?></strong>
+                    </p>
                     <?php echo $this->get_description_html( $data ); // WPCS: XSS ok. ?>
                     <legend class="screen-reader-text"><span><?php echo wp_kses_post( $data['title'] ); ?></span></legend>
                     <input class="input-text regular-input <?php echo esc_attr( $data['class'] ); ?>" type="text" name="<?php echo esc_attr( $field_key ); ?>" id="<?php echo esc_attr( $field_key ); ?>" style="<?php echo esc_attr( $data['css'] ); ?>" value="<?php echo esc_attr( $this->get_option( $key ) ); ?>" placeholder="<?php echo esc_attr( $data['placeholder'] ); ?>" <?php disabled( $data['disabled'], true ); ?> <?php echo $this->get_custom_attribute_html( $data ); // WPCS: XSS ok. ?> />
@@ -340,14 +343,6 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
     public function process_admin_options()
     {
-        // Enqueue scripts and localize data
-        wp_enqueue_script('blockonomics-admin', plugins_url('js/admin.js', dirname(__FILE__)), array('jquery'), '1.0');
-        wp_localize_script('blockonomics-admin', 'blockonomics_params', array(
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'enabled_cryptos' => get_option('blockonomics_enabled_cryptos', 'btc'),
-            'plugin_url' => plugins_url('', dirname(__FILE__))
-        ));
-
         if (!parent::process_admin_options()) {
             return false;
         }
@@ -366,6 +361,7 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         update_option('blockonomics_bitcoin_discount', floatval($this->get_option('bitcoin_discount')));
         update_option('blockonomics_margin', floatval($this->get_option('extra_margin')));
         update_option('blockonomics_underpayment_slack', floatval($this->get_option('underpayment_slack')));
+        update_option('blockonomics_usdt_testnet', $this->get_option('usdt_testnet') == 'yes' ? 1 : 0);
         update_option('blockonomics_partial_payments', $this->get_option('partial_payment') == 'yes' ? 1 : 0);
         update_option('blockonomics_api_key', $this->get_option('api_key'));
         update_option('blockonomics_nojs', $this->get_option('no_javascript') == 'yes' ? 1 : 0);
@@ -402,18 +398,23 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         $value = isset($_GET['value']) ? absint($_GET['value']) : "";
         $txid = isset($_GET['txid']) ? sanitize_text_field(wp_unslash($_GET['txid'])) : "";
         $rbf = isset($_GET['rbf']) ? wp_validate_boolean(intval(wp_unslash($_GET['rbf']))) : "";
+        $txhash = isset($_GET["txhash"]) ? sanitize_text_field(wp_unslash($_GET['txhash'])) : "";
+        $testnet = isset($_GET["testnet"]) ? sanitize_text_field(wp_unslash($_GET['testnet'])) : false;
 
         include_once 'Blockonomics.php';
         $blockonomics = new Blockonomics;
 
         if ($finish_order) {
             $order_id = $blockonomics->decrypt_hash($finish_order);
+            if ($crypto == "usdt"){
+                $blockonomics->process_token_order($order_id, $crypto, $txhash); 
+            }
             $blockonomics->redirect_finish_order($order_id);
         } else if ($get_amount && $crypto) {
             $order_id = $blockonomics->decrypt_hash($get_amount);
             $blockonomics->get_order_amount_info($order_id, $crypto);
         } else if ($secret && $addr && isset($status) && $value && $txid) {
-            $blockonomics->process_callback($secret, $addr, $status, $value, $txid, $rbf);
+            $blockonomics->process_callback($secret, $crypto, $addr, $status, $value, $txid, $rbf, $testnet);
         }
 
         exit();

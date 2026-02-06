@@ -10,11 +10,21 @@ class FormFields {
         // Get the current API key and any stored metadata
         $api_key = get_option('blockonomics_api_key');
         $store_name = get_option('blockonomics_store_name');
-        // $enabled_cryptos = get_option('blockonomics_enabled_cryptos', array());
+        $enabled_cryptos = get_option('blockonomics_enabled_cryptos', array());
+        $subtitle = '';
         if ($store_name) {
-            $subtitle = $store_name;
-        } else {
-            $subtitle = __('<br>', 'blockonomics-bitcoin-payments');
+            $subtitle = esc_html($store_name);
+            // Add crypto icons for enabled cryptos
+            if (!empty($enabled_cryptos)) {
+                $crypto_codes = explode(',', $enabled_cryptos);
+                foreach ($crypto_codes as $code) {
+                    $code = trim(strtolower($code));
+                    if (in_array($code, ['btc', 'usdt', 'bch'])) {
+                        $icon_url = plugins_url('../img/' . $code . '.svg', __FILE__);
+                        $subtitle .= ' <img src="' . esc_url($icon_url) . '" alt="' . esc_attr(strtoupper($code)) . '" style="height:18px;vertical-align:middle;margin-left:4px;" title="' . esc_attr(strtoupper($code)) . '" />';
+                    }
+                }
+            }
         }
 
         $form_fields = array(
@@ -29,7 +39,7 @@ class FormFields {
                 'subtitle' => __('Title', 'blockonomics-bitcoin-payments'),
                 'type' => 'text',
                 'description' => __('Payment method for <i>bitcoin</i> displayed to the user during checkout.', 'blockonomics-bitcoin-payments'),
-                'default' => __('Bitcoin', 'blockonomics-bitcoin-payments'),
+                'default' => __('Crypto', 'blockonomics-bitcoin-payments'),
                 'placeholder' => __('Title', 'blockonomics-bitcoin-payments')
             ),
             'description' => array(
@@ -85,6 +95,13 @@ class FormFields {
             'placeholder' => __('Underpayment Slack %', 'blockonomics-bitcoin-payments'),
             'custom_attributes' => ['step' => '0.1', 'min' => '0', 'max' => '20']
         );
+        $form_fields['usdt_testnet'] = array(
+            'title' => __('', 'blockonomics-bitcoin-payments'),
+            'type' => 'checkbox',
+            'subtitle' => __('USDT Testnet Mode', 'blockonomics-bitcoin-payments'),
+            'label' => __('USDT payments (if enabled) will be processed on ETH sepolia network', 'blockonomics-bitcoin-payments'),
+            'default' => 'no',
+        );
         $form_fields['enable_bch'] = array(
             'title' => __('', 'blockonomics-bitcoin-payments'),
             'type' => 'checkbox',
@@ -97,6 +114,7 @@ class FormFields {
             'type' => 'checkbox',
             'subtitle' => __('No Javascript checkout page', 'blockonomics-bitcoin-payments'),
             'label' => __('Enable this if you have majority customer that uses tor like browser that blocks JS', 'blockonomics-bitcoin-payments'),
+            'description' => __('Note: Customers paying with USDT must have JavaScript enabled.', 'blockonomics-bitcoin-payments'),
             'default' => get_option('blockonomics_nojs') == 1 ? 'yes' : 'no',
         );
         $form_fields['partial_payment'] = array(
