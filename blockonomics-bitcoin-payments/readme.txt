@@ -6,7 +6,7 @@ Tested up to: 6.9
 **Require PHP:** 7.4
 **WC requires at least:** 7.0
 **WC tested up to:** 10.4.3
-Stable tag: 3.9.0
+Stable tag: 3.9.1
 License: MIT 
 License URI: http://opensource.org/licenses/MIT 
 
@@ -77,6 +77,13 @@ You are free to customize the checkout page according to your needs. Feel free t
 
 4. Blockonomics configuration
 == Changelog ==
+
+= 3.9.1  =
+* Added testmode support for simulated test payments via Blockonomics dashboard
+* Faster checkout page load with parallel API calls
+* Added payment logs under WooCommerce > Status > Logs
+* Orders now set to On Hold while waiting for crypto confirmations
+* Fixed PHP 8+ fatal error in WooCommerce Blocks integration
 
 = 3.9.0  =
 * Performance: Improve checkout page load time
