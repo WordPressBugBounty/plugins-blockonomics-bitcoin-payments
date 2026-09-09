@@ -2,11 +2,11 @@
 Contributors: juhasiivikko, darrenwestwood, blockonomics, ankit61d, btcdeveloper
 Tags: bitcoin, bitcoin payments, usdt payments, woocommerce, cryptocurrency
 Requires at least: 5.6
-Tested up to: 7.0.2
+Tested up to: 7.0.4
 **Require PHP:** 7.4
 **WC requires at least:** 7.0
 **WC tested up to:** 10.4.3
-Stable tag: 3.10.1
+Stable tag: 3.11.0
 License: MIT 
 License URI: http://opensource.org/licenses/MIT 
 
@@ -92,6 +92,11 @@ You are free to customize the checkout page according to your needs. Feel free t
 
 4. Blockonomics configuration
 == Changelog ==
+
+= 3.11.0  =
+* Support for multilingual stores
+* Improved USDT payment handling and recovery
+* Orders stay Pending without automatic cancellation
 
 = 3.10.1  =
 * Minor Fixes
